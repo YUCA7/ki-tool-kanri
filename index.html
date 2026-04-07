@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>工具管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --primary-dark: #1558b0;
+    --danger: #e53935;
+    --success: #43a047;
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --text: #1a1a2e;
+    --muted: #666;
+    --border: #e0e0e0;
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 16px 16px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+  header .sub { font-size: 12px; opacity: .8; margin-top: 2px; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-icon {
+    background: rgba(255,255,255,0.18);
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  .btn-icon:active { background: rgba(255,255,255,0.32); }
+
+  /* ── Search ── */
+  .search-wrap {
+    padding: 12px 16px 0;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    font-size: 15px;
+    background: #fff;
+    outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--primary); }
+
+  /* ── Tool Grid ── */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    padding: 14px 16px 100px;
+  }
+  .tool-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tool-card:active { transform: scale(0.97); box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
+  .tool-card .photo {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #e8eaf0;
+    display: block;
+  }
+  .tool-card .photo-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    background: linear-gradient(135deg, #e8eaf0 60%, #d0d4e0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+  }
+  .tool-card .info {
+    padding: 10px 10px 12px;
+  }
+  .tool-card .tool-id {
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+  .tool-card .tool-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 2px 0 6px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .location-badge {
+    display: inline-block;
+    background: #e8f0fe;
+    color: var(--primary);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .location-badge.warehouse { background: #fff3e0; color: #e65100; }
+  .location-badge.site-b { background: #e8f5e9; color: #2e7d32; }
+  .location-badge.site-c { background: #fce4ec; color: #880e4f; }
+
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 52px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  /* ── Bottom Sheet (Location Update) ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+  }
+  .overlay.show { display: flex; }
+  .overlay.center { align-items: center; justify-content: center; }
+  .sheet {
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0 0 30px;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: slideUp .22s ease;
+  }
+  .overlay.center .sheet {
+    border-radius: 18px;
+    max-width: 460px;
+    margin: 20px;
+    max-height: 88vh;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(60px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .sheet-handle {
+    width: 38px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+  .sheet-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sheet-title { font-size: 17px; font-weight: 700; }
+  .btn-close {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Location Update Sheet */
+  #sheetUpdate .tool-summary {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  #sheetUpdate .tool-summary img,
+  #sheetUpdate .tool-summary .thumb-ph {
+    width: 64px; height: 64px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #e8eaf0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .current-loc-label { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .current-loc-val { font-size: 18px; font-weight: 700; color: var(--primary); }
+  .loc-buttons { padding: 16px 18px 0; }
+  .loc-buttons p { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .loc-btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .loc-btn {
+    padding: 16px 10px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .12s;
+    text-align: center;
+  }
+  .loc-btn:active { transform: scale(0.97); }
+  .loc-btn.active {
+    border-color: var(--primary);
+    background: #e8f0fe;
+    color: var(--primary);
+  }
+  .loc-btn:hover { border-color: var(--primary); background: #f0f4ff; }
+  .btn-qr {
+    margin: 18px 18px 0;
+    width: calc(100% - 36px);
+    padding: 13px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-qr:active { background: #f0f0f0; }
+
+  /* QR Modal */
+  #sheetQr .qr-wrap {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  #sheetQr .qr-wrap canvas,
+  #sheetQr .qr-wrap img { border-radius: 8px; }
+  #sheetQr .qr-info { text-align: center; }
+  #sheetQr .qr-info .tool-id { font-size: 13px; color: var(--primary); font-weight: 700; }
+  #sheetQr .qr-info .tool-name { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  #sheetQr .qr-url { font-size: 11px; color: var(--muted); word-break: break-all; text-align: center; padding: 0 16px; }
+
+  /* ── Admin Sheet ── */
+  #sheetAdmin .admin-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-tab {
+    flex: 1;
+    padding: 12px 4px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+  }
+  .admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .admin-pane { padding: 16px 18px; display: none; }
+  .admin-pane.active { display: block; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: block; font-weight: 600; }
+  .form-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    font-size: 15px;
+    background: #fff;
+    outline: none;
+    color: var(--text);
+  }
+  .form-input:focus { border-color: var(--primary); }
+  .photo-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    background: #fafafa;
+    transition: border-color .15s;
+  }
+  .photo-upload-area:hover { border-color: var(--primary); }
+  .photo-upload-area .icon { font-size: 32px; margin-bottom: 6px; }
+  .photo-upload-area p { font-size: 13px; color: var(--muted); }
+  #previewImg {
+    width: 100%; max-height: 180px;
+    object-fit: cover;
+    border-radius: 10px;
+    display: none;
+    margin-top: 10px;
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .btn-primary:active { background: var(--primary-dark); }
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Tool list in admin */
+  .admin-tool-list { display: flex; flex-direction: column; gap: 10px; }
+  .admin-tool-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .admin-tool-item .thumb {
+    width: 52px; height: 52px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #e8eaf0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .admin-tool-item .tool-meta { flex: 1; min-width: 0; }
+  .admin-tool-item .tool-meta .id { font-size: 11px; color: var(--primary); font-weight: 700; }
+  .admin-tool-item .tool-meta .name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .admin-tool-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn-edit {
+    background: #e8f0fe;
+    color: var(--primary);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Location management */
+  .loc-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .loc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .loc-item input {
+    flex: 1;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 15px;
+    outline: none;
+    background: #fff;
+  }
+  .loc-item input:focus { border-color: var(--primary); }
+  .btn-add-loc {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 2px dashed var(--border);
+    background: transparent;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+    margin-bottom: 12px;
+  }
+  .btn-add-loc:active { background: #f0f0f0; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #323232;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Edit mode badge */
+  .edit-mode-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ── Person selection ── */
+  .person-section {
+    padding: 14px 18px 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+  .person-section .section-label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .person-btn-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .person-btn {
+    padding: 9px 16px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    background: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .12s;
+  }
+  .person-btn.active {
+    border-color: #43a047;
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .person-free-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    font-size: 14px;
+    outline: none;
+    background: #fff;
+    color: var(--text);
+  }
+  .person-free-input:focus { border-color: #43a047; }
+
+  /* ── History log ── */
+  .history-list {
+    padding: 0 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .history-item {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 12px 14px;
+    border-left: 4px solid var(--primary);
+  }
+  .history-item .hist-date {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .history-item .hist-person {
+    font-size: 15px;
+    font-weight: 700;
+    color: #2e7d32;
+    margin-bottom: 4px;
+  }
+  .history-item .hist-move {
+    font-size: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hist-arrow { color: var(--muted); font-size: 16px; }
+  .hist-loc-from { color: var(--muted); }
+  .hist-loc-to { font-weight: 700; color: var(--primary); }
+  .history-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px 0;
+    font-size: 14px;
+  }
+  .btn-hist {
+    margin: 10px 18px 0;
+    width: calc(100% - 36px);
+    padding: 13px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-hist:active { background: #f0f0f0; }
+
+  /* ── Checkout status badges ── */
+  .badge-row {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;
+  }
+  .badge-checkout {
+    display: inline-block;
+    background: #fff3e0;
+    color: #e65100;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-overdue {
+    display: inline-block;
+    background: #ffebee;
+    color: #c62828;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:.55; }
+  }
+  .tool-card.overdue { outline: 2px solid #e53935; }
+
+  /* ── Checkout confirm area ── */
+  .confirm-area {
+    display: none;
+    padding: 16px 18px;
+    background: #f8f9fa;
+    border-top: 2px solid var(--primary);
+  }
+  .confirm-area.show { display: block; }
+  .confirm-dest {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+  .confirm-dest span { color: var(--primary); }
+  .due-date-group { margin-bottom: 14px; }
+  .due-date-group label { font-size: 13px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+  .due-date-group input {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    font-size: 15px;
+    background: #fff;
+    outline: none;
+    width: 100%;
+  }
+  .due-date-group input:focus { border-color: var(--primary); }
+  .confirm-btns { display: flex; gap: 10px; }
+  .btn-confirm {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--success);
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-confirm.return { background: var(--primary); }
+  .btn-confirm:active { opacity: .85; }
+  .btn-back {
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: #f0f0f0;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Unreturned list ── */
+  .unreturned-list { display: flex; flex-direction: column; gap: 12px; }
+  .unreturned-item {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1.5px solid var(--border);
+  }
+  .unreturned-item.overdue { border-color: #e53935; background: #fff5f5; }
+  .unreturned-item .ui-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .unreturned-item .ui-thumb {
+    width: 44px; height: 44px; border-radius: 8px; object-fit: cover;
+    background: #e8eaf0; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .unreturned-item .ui-meta { flex: 1; min-width: 0; }
+  .unreturned-item .ui-id { font-size: 11px; color: var(--primary); font-weight: 700; }
+  .unreturned-item .ui-name { font-size: 15px; font-weight: 700; }
+  .unreturned-item .ui-detail {
+    font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.7;
+  }
+  .unreturned-item .ui-detail strong { color: var(--text); }
+  .unreturned-item .ui-detail .overdue-label { color: #c62828; font-weight: 700; }
+  .btn-notify {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px;
+    background: #e8f0fe;
+    color: var(--primary);
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-notify:active { background: #d2e3fc; }
+  .unreturned-empty { text-align: center; color: var(--muted); padding: 32px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <h1>🔧 工具管理</h1>
+      <div class="sub" id="toolCount">読み込み中...</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="openAdmin()">⚙ 管理者</button>
+    </div>
+  </div>
+</header>
+
+<div class="search-wrap">
+  <input type="search" id="searchInput" placeholder="工具名・番号で検索..." oninput="renderTools()">
+</div>
+
+<div class="tool-grid" id="toolGrid"></div>
+
+<!-- Location Update Sheet -->
+<div class="overlay" id="overlayUpdate" onclick="closeUpdate(event)">
+  <div class="sheet" id="sheetUpdate">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title" id="updateTitle">所在を変更</span>
+      <button class="btn-close" onclick="closeOverlay('overlayUpdate')">×</button>
+    </div>
+    <div class="tool-summary" id="updateSummary"></div>
+    <div class="person-section">
+      <div class="section-label">👤 担当者を選択（必須）</div>
+      <div class="person-btn-wrap" id="personBtnWrap"></div>
+      <input class="person-free-input" id="personFreeInput" placeholder="直接入力することもできます" oninput="onPersonFreeInput()">
+    </div>
+    <div class="loc-buttons" id="locButtonsArea">
+      <p>変更先の現場を選択</p>
+      <div class="loc-btn-grid" id="locBtnGrid"></div>
+    </div>
+    <div class="confirm-area" id="confirmArea">
+      <div class="confirm-dest" id="confirmDestLabel"></div>
+      <div class="due-date-group" id="dueDateGroup">
+        <label>📅 返却予定日（任意）</label>
+        <input type="date" id="dueDateInput">
+      </div>
+      <div class="confirm-btns">
+        <button class="btn-back" onclick="cancelConfirm()">戻る</button>
+        <button class="btn-confirm" id="btnConfirm" onclick="confirmCheckout()">貸し出し確定</button>
+      </div>
+    </div>
+    <button class="btn-hist" onclick="openHistory(currentToolId)">
+      📋 変更履歴を見る
+    </button>
+    <button class="btn-qr" onclick="openQrFromUpdate()">
+      📷 QRコードを表示
+    </button>
+  </div>
+</div>
+
+<!-- QR Code Sheet -->
+<div class="overlay center" id="overlayQr" onclick="closeUpdate(event)">
+  <div class="sheet" id="sheetQr">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">QRコード</span>
+      <button class="btn-close" onclick="closeOverlay('overlayQr')">×</button>
+    </div>
+    <div class="qr-wrap">
+      <div id="qrCanvas"></div>
+      <div class="qr-info">
+        <div class="tool-id" id="qrToolId"></div>
+        <div class="tool-name" id="qrToolName"></div>
+      </div>
+      <div class="qr-url" id="qrUrl"></div>
+      <button class="btn-primary" onclick="downloadQr()" style="margin-top:4px; width:100%">
+        📥 画像としてダウンロード
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- History Sheet -->
+<div class="overlay center" id="overlayHistory" onclick="closeUpdate(event)">
+  <div class="sheet" id="sheetHistory">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title" id="historyTitle">変更履歴</span>
+      <button class="btn-close" onclick="closeOverlay('overlayHistory')">×</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- Admin Sheet -->
+<div class="overlay center" id="overlayAdmin" onclick="closeUpdate(event)">
+  <div class="sheet" id="sheetAdmin">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">⚙ 管理者画面</span>
+      <button class="btn-close" onclick="closeOverlay('overlayAdmin')">×</button>
+    </div>
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchTab(0)">工具追加</div>
+      <div class="admin-tab" onclick="switchTab(1)">工具一覧</div>
+      <div class="admin-tab" onclick="switchTab(2)">現場管理</div>
+      <div class="admin-tab" onclick="switchTab(3)">担当者</div>
+      <div class="admin-tab" onclick="switchTab(4)" id="tabUnreturnedBtn">未返却</div>
+    </div>
+
+    <!-- Tab 0: Add Tool -->
+    <div class="admin-pane active" id="tabAdd">
+      <div class="form-group">
+        <label class="form-label">工具番号（自動採番）</label>
+        <input class="form-input" id="newToolId" readonly style="background:#f5f5f5; color:var(--muted);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">工具名 <span style="color:red">*</span></label>
+        <input class="form-input" id="newToolName" placeholder="例: 電動ドリル">
+      </div>
+      <div class="form-group">
+        <label class="form-label">写真</label>
+        <div class="photo-upload-area" onclick="document.getElementById('photoInput').click()">
+          <div class="icon">📷</div>
+          <p>タップして写真を選択</p>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+        <img id="previewImg" alt="プレビュー">
+      </div>
+      <div class="form-group">
+        <label class="form-label">初期所在</label>
+        <select class="form-input" id="newToolLoc"></select>
+      </div>
+      <button class="btn-primary" onclick="addTool()" id="btnAddTool">工具を追加</button>
+    </div>
+
+    <!-- Tab 1: Tool List -->
+    <div class="admin-pane" id="tabList">
+      <div class="admin-tool-list" id="adminToolList"></div>
+    </div>
+
+    <!-- Tab 2: Location Management -->
+    <div class="admin-pane" id="tabLoc">
+      <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">現場名を編集・追加できます</p>
+      <div class="loc-list" id="locList"></div>
+      <button class="btn-add-loc" onclick="addLocation()">＋ 現場を追加</button>
+      <button class="btn-primary" onclick="saveLocations()">現場名を保存</button>
+    </div>
+
+    <!-- Tab 3: Person Management -->
+    <div class="admin-pane" id="tabPerson">
+      <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">担当者名を登録しておくと所在変更時にボタンで選択できます</p>
+      <div class="loc-list" id="personList"></div>
+      <button class="btn-add-loc" onclick="addPerson()">＋ 担当者を追加</button>
+      <button class="btn-primary" onclick="savePersons()">担当者を保存</button>
+    </div>
+
+    <!-- Tab 4: Unreturned -->
+    <div class="admin-pane" id="tabUnreturned">
+      <div id="unreturnedList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Tool Sheet -->
+<div class="overlay center" id="overlayEdit" onclick="closeUpdate(event)">
+  <div class="sheet" id="sheetEdit">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">工具を編集</span>
+      <button class="btn-close" onclick="closeOverlay('overlayEdit')">×</button>
+    </div>
+    <div class="admin-pane active" style="display:block">
+      <div class="form-group">
+        <label class="form-label">工具番号</label>
+        <input class="form-input" id="editToolId" readonly style="background:#f5f5f5; color:var(--muted);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">工具名 <span style="color:red">*</span></label>
+        <input class="form-input" id="editToolName" placeholder="工具名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">写真</label>
+        <div class="photo-upload-area" onclick="document.getElementById('editPhotoInput').click()">
+          <div class="icon">📷</div>
+          <p>タップして写真を変更</p>
+        </div>
+        <input type="file" id="editPhotoInput" accept="image/*" style="display:none" onchange="previewEditPhoto(this)">
+        <img id="editPreviewImg" alt="プレビュー" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:10px;display:none">
+      </div>
+      <div class="form-group">
+        <label class="form-label">現在の所在</label>
+        <select class="form-input" id="editToolLoc"></select>
+      </div>
+      <button class="btn-primary" onclick="saveEditTool()">変更を保存</button>
+      <button class="btn-danger" style="width:100%;padding:13px;border-radius:12px;font-size:15px;margin-top:10px;" onclick="deleteTool()">🗑 この工具を削除</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Data ──────────────────────────────────────────────
+const DEFAULT_LOCATIONS = ['A現場', 'B現場', 'C現場', '倉庫'];
+const DEFAULT_PERSONS = ['山田', '鈴木', '佐藤'];
+const DEFAULT_TOOLS = [
+  { id: 'KI-01', name: '電動ドリル', photo: '', location: '倉庫', history: [] },
+  { id: 'KI-02', name: 'インパクトドライバー', photo: '', location: 'A現場', history: [] },
+  { id: 'KI-03', name: '丸のこ', photo: '', location: 'B現場', history: [] },
+];
+
+function loadData() {
+  const t = localStorage.getItem('tools_data');
+  const l = localStorage.getItem('locations_data');
+  const p = localStorage.getItem('persons_data');
+  const tools = t ? JSON.parse(t) : JSON.parse(JSON.stringify(DEFAULT_TOOLS));
+  // 既存データにhistoryがない場合は補完
+  tools.forEach(tool => {
+    if (!tool.history) tool.history = [];
+    if (tool.dueDate === undefined) tool.dueDate = null;
+  });
+  return {
+    tools,
+    locations: l ? JSON.parse(l) : [...DEFAULT_LOCATIONS],
+    persons: p ? JSON.parse(p) : [...DEFAULT_PERSONS]
+  };
+}
+function saveData(data) {
+  localStorage.setItem('tools_data', JSON.stringify(data.tools));
+  localStorage.setItem('locations_data', JSON.stringify(data.locations));
+  localStorage.setItem('persons_data', JSON.stringify(data.persons));
+}
+
+let data = loadData();
+let currentToolId = null;
+let currentPerson = null;
+let pendingLoc = null;
+let editPhotoData = null;
+let newPhotoData = null;
+
+// ── Tool rendering ────────────────────────────────────
+function getLocationClass(loc) {
+  if (loc === '倉庫') return 'warehouse';
+  if (loc && loc.includes('B')) return 'site-b';
+  if (loc && loc.includes('C')) return 'site-c';
+  return '';
+}
+
+function renderTools() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const grid = document.getElementById('toolGrid');
+  const filtered = data.tools.filter(t =>
+    t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q)
+  );
+  document.getElementById('toolCount').textContent = `全 ${data.tools.length} 点`;
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>該当する工具はありません</p></div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(t => {
+    const checkedOut = isCheckedOut(t);
+    const overdue = isOverdue(t);
+    const last = getLastHistory(t);
+    const person = (checkedOut && last) ? last.person : null;
+    return `
+    <div class="tool-card ${overdue ? 'overdue' : ''}" onclick="openUpdate('${t.id}')">
+      ${t.photo
+        ? `<img class="photo" src="${t.photo}" alt="${t.name}">`
+        : `<div class="photo-placeholder">🔧</div>`}
+      <div class="info">
+        <div class="tool-id">${t.id}</div>
+        <div class="tool-name">${escHtml(t.name)}</div>
+        <span class="location-badge ${getLocationClass(t.location)}">${escHtml(t.location)}</span>
+        <div class="badge-row">
+          ${checkedOut ? `<span class="badge-checkout">貸出中${person ? `：${escHtml(person)}` : ''}</span>` : ''}
+          ${overdue ? `<span class="badge-overdue">⚠ 期限超過</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Location Update ────────────────────────────────────
+function openUpdate(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+  currentToolId = id;
+
+  document.getElementById('updateTitle').textContent = `所在を変更`;
+  const summary = document.getElementById('updateSummary');
+  summary.innerHTML = `
+    ${tool.photo
+      ? `<img src="${tool.photo}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0">`
+      : `<div class="thumb-ph" style="width:64px;height:64px;border-radius:10px;background:#e8eaf0;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🔧</div>`}
+    <div>
+      <div style="font-size:11px;color:var(--primary);font-weight:700">${escHtml(tool.id)}</div>
+      <div style="font-size:17px;font-weight:700;margin:2px 0 6px">${escHtml(tool.name)}</div>
+      <div class="current-loc-label">現在の所在</div>
+      <div class="current-loc-val">${escHtml(tool.location)}</div>
+    </div>
+  `;
+
+  currentPerson = null;
+  pendingLoc = null;
+  renderPersonButtons();
+  document.getElementById('personFreeInput').value = '';
+  document.getElementById('confirmArea').classList.remove('show');
+  document.getElementById('locButtonsArea').style.display = '';
+  renderLocButtons(tool.location);
+  openOverlay('overlayUpdate');
+}
+
+function renderPersonButtons() {
+  const wrap = document.getElementById('personBtnWrap');
+  wrap.innerHTML = data.persons.map(p => `
+    <button class="person-btn ${p === currentPerson ? 'active' : ''}" onclick="selectPerson('${escHtml(p)}')">
+      ${escHtml(p)}
+    </button>
+  `).join('');
+}
+
+function selectPerson(name) {
+  currentPerson = name;
+  document.getElementById('personFreeInput').value = '';
+  renderPersonButtons();
+}
+
+function onPersonFreeInput() {
+  const val = document.getElementById('personFreeInput').value.trim();
+  currentPerson = val || null;
+  // ボタン選択を外す
+  document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+}
+
+function renderLocButtons(current) {
+  const grid = document.getElementById('locBtnGrid');
+  grid.innerHTML = data.locations.map(loc => `
+    <button class="loc-btn ${loc === current ? 'active' : ''}" onclick="updateLocation('${escHtml(loc)}')">
+      ${escHtml(loc)}
+    </button>
+  `).join('');
+}
+
+function updateLocation(loc) {
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool) return;
+  if (loc === tool.location) return;
+
+  const freeVal = document.getElementById('personFreeInput').value.trim();
+  const person = freeVal || currentPerson;
+  if (!person) {
+    showToast('⚠ 担当者を選択または入力してください');
+    return;
+  }
+
+  pendingLoc = loc;
+  const isReturn = (loc === '倉庫');
+  const confirmArea = document.getElementById('confirmArea');
+  const dueDateGroup = document.getElementById('dueDateGroup');
+  const btnConfirm = document.getElementById('btnConfirm');
+  const label = document.getElementById('confirmDestLabel');
+
+  if (isReturn) {
+    label.innerHTML = `<span style="color:var(--primary)">倉庫</span> に返却しますか？`;
+    dueDateGroup.style.display = 'none';
+    btnConfirm.textContent = '返却完了';
+    btnConfirm.className = 'btn-confirm return';
+  } else {
+    label.innerHTML = `<span style="color:var(--success)">${escHtml(loc)}</span> に貸し出しますか？`;
+    dueDateGroup.style.display = '';
+    // デフォルト日付: 1週間後
+    const def = new Date(); def.setDate(def.getDate() + 7);
+    document.getElementById('dueDateInput').value = def.toISOString().slice(0,10);
+    btnConfirm.textContent = '貸し出し確定';
+    btnConfirm.className = 'btn-confirm';
+  }
+
+  document.getElementById('locButtonsArea').style.display = 'none';
+  confirmArea.classList.add('show');
+}
+
+function cancelConfirm() {
+  pendingLoc = null;
+  document.getElementById('confirmArea').classList.remove('show');
+  document.getElementById('locButtonsArea').style.display = '';
+}
+
+function confirmCheckout() {
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool || !pendingLoc) return;
+
+  const freeVal = document.getElementById('personFreeInput').value.trim();
+  const person = freeVal || currentPerson;
+  const fromLoc = tool.location;
+  const isReturn = (pendingLoc === '倉庫');
+  const dueDate = (!isReturn && document.getElementById('dueDateInput').value)
+    ? document.getElementById('dueDateInput').value : null;
+
+  tool.location = pendingLoc;
+  tool.dueDate = isReturn ? null : dueDate;
+  if (!tool.history) tool.history = [];
+  tool.history.unshift({
+    date: new Date().toISOString(),
+    person,
+    from: fromLoc,
+    to: pendingLoc,
+    dueDate,
+    type: isReturn ? 'return' : 'checkout'
+  });
+
+  saveData(data);
+  renderTools();
+  document.querySelector('.current-loc-val').textContent = pendingLoc;
+
+  document.getElementById('confirmArea').classList.remove('show');
+  document.getElementById('locButtonsArea').style.display = '';
+  renderLocButtons(pendingLoc);
+  pendingLoc = null;
+
+  if (isReturn) {
+    showToast(`✅ ${person}：${tool.name} 返却完了`);
+  } else {
+    const dueTxt = dueDate ? `（返却予定 ${dueDate}）` : '';
+    showToast(`📦 ${person}：${tool.name} → ${tool.location}${dueTxt}`);
+  }
+}
+
+// ── Checkout helpers ──────────────────────────────────
+function isCheckedOut(tool) {
+  return tool.location !== '倉庫';
+}
+function isOverdue(tool) {
+  if (!isCheckedOut(tool) || !tool.dueDate) return false;
+  return new Date(tool.dueDate) < new Date(new Date().toDateString());
+}
+function getLastHistory(tool) {
+  return (tool.history && tool.history.length) ? tool.history[0] : null;
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function formatDateShort(ymd) {
+  if (!ymd) return '';
+  const [y,m,d] = ymd.split('-');
+  return `${y}/${m}/${d}`;
+}
+
+// ── History ────────────────────────────────────────────
+function openHistory(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+  document.getElementById('historyTitle').textContent = `${tool.id} ${tool.name} の履歴`;
+  const list = document.getElementById('historyList');
+  if (!tool.history || !tool.history.length) {
+    list.innerHTML = `<div class="history-empty">📭 変更履歴はまだありません</div>`;
+  } else {
+    list.innerHTML = `<div class="history-list">` +
+      tool.history.map(h => {
+        const dateStr = formatDate(h.date);
+        return `
+          <div class="history-item">
+            <div class="hist-date">🕐 ${dateStr}${h.type === 'return' ? ' ✅ 返却' : h.type === 'checkout' ? ' 📦 貸出' : ''}</div>
+            <div class="hist-person">👤 ${escHtml(h.person)}</div>
+            <div class="hist-move">
+              <span class="hist-loc-from">${escHtml(h.from)}</span>
+              <span class="hist-arrow">→</span>
+              <span class="hist-loc-to">${escHtml(h.to)}</span>
+            </div>
+            ${h.dueDate ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">返却予定：${formatDateShort(h.dueDate)}</div>` : ''}
+          </div>`;
+      }).join('') +
+    `</div>`;
+  }
+  openOverlay('overlayHistory');
+}
+
+// ── QR Code ────────────────────────────────────────────
+function openQrFromUpdate() {
+  openQr(currentToolId);
+}
+
+function openQr(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+
+  const url = buildToolUrl(id);
+  document.getElementById('qrToolId').textContent = tool.id;
+  document.getElementById('qrToolName').textContent = tool.name;
+  document.getElementById('qrUrl').textContent = url;
+
+  const canvas = document.getElementById('qrCanvas');
+  canvas.innerHTML = '';
+  new QRCode(canvas, {
+    text: url,
+    width: 220,
+    height: 220,
+    colorDark: '#1a1a2e',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  openOverlay('overlayQr');
+}
+
+function downloadQr() {
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool) return;
+  const qrCanvas = document.querySelector('#qrCanvas canvas');
+  if (!qrCanvas) return;
+
+  const pad = 24;
+  const labelAreaTop = 48;   // 番号
+  const labelAreaBot = 56;   // 名前
+  const qrSize = qrCanvas.width;
+  const totalW = qrSize + pad * 2;
+  const totalH = labelAreaTop + qrSize + labelAreaBot + pad;
+
+  const out = document.createElement('canvas');
+  out.width = totalW;
+  out.height = totalH;
+  const ctx = out.getContext('2d');
+
+  // 背景
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  // 枠線
+  ctx.strokeStyle = '#cccccc';
+  ctx.lineWidth = 2;
+  ctx.roundRect(2, 2, totalW - 4, totalH - 4, 12);
+  ctx.stroke();
+
+  // 工具番号（上）
+  ctx.fillStyle = '#1a73e8';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(tool.id, totalW / 2, pad + 22);
+
+  // QRコード
+  ctx.drawImage(qrCanvas, pad, labelAreaTop, qrSize, qrSize);
+
+  // 工具名（下）
+  ctx.fillStyle = '#1a1a2e';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center';
+  // 長い名前は縮小
+  let fontSize = 22;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  while (ctx.measureText(tool.name).width > totalW - pad * 2 && fontSize > 13) {
+    fontSize--;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+  }
+  ctx.fillText(tool.name, totalW / 2, labelAreaTop + qrSize + 36);
+
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/png');
+  a.download = `工具QR_${tool.id}_${tool.name}.png`;
+  a.click();
+}
+
+function buildToolUrl(id) {
+  const base = location.href.split('?')[0];
+  return `${base}?tool=${encodeURIComponent(id)}`;
+}
+
+// ── Admin ──────────────────────────────────────────────
+function openAdmin() {
+  refreshAdminToolId();
+  refreshLocSelect('newToolLoc');
+  renderAdminToolList();
+  renderLocList();
+  renderPersonList();
+  // 未返却バッジ更新
+  const count = data.tools.filter(t => isCheckedOut(t)).length;
+  const btn = document.getElementById('tabUnreturnedBtn');
+  btn.textContent = `未返却${count ? `(${count})` : ''}`;
+  if (count) btn.style.color = '#e53935';
+  switchTab(0);
+  openOverlay('overlayAdmin');
+}
+
+function switchTab(i) {
+  document.querySelectorAll('.admin-tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+  document.querySelectorAll('.admin-pane').forEach((p, idx) => p.classList.toggle('active', idx === i));
+  if (i === 4) renderUnreturnedList();
+}
+
+function refreshAdminToolId() {
+  const nextNum = data.tools.length + 1;
+  const id = 'KI-' + String(nextNum).padStart(2, '0');
+  document.getElementById('newToolId').value = id;
+}
+
+function refreshLocSelect(selId) {
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  sel.innerHTML = data.locations.map(l => `<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('');
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    newPhotoData = e.target.result;
+    const img = document.getElementById('previewImg');
+    img.src = newPhotoData;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function previewEditPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editPhotoData = e.target.result;
+    const img = document.getElementById('editPreviewImg');
+    img.src = editPhotoData;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function addTool() {
+  const name = document.getElementById('newToolName').value.trim();
+  if (!name) { showToast('⚠ 工具名を入力してください'); return; }
+  const id = document.getElementById('newToolId').value;
+  const loc = document.getElementById('newToolLoc').value;
+  data.tools.push({ id, name, photo: newPhotoData || '', location: loc });
+  saveData(data);
+  renderTools();
+  showToast(`✅ ${name}（${id}）を追加しました`);
+  // Reset
+  document.getElementById('newToolName').value = '';
+  document.getElementById('previewImg').style.display = 'none';
+  newPhotoData = null;
+  document.getElementById('photoInput').value = '';
+  refreshAdminToolId();
+}
+
+function renderAdminToolList() {
+  const list = document.getElementById('adminToolList');
+  if (!data.tools.length) {
+    list.innerHTML = `<p style="color:var(--muted);text-align:center;padding:20px">工具はまだありません</p>`;
+    return;
+  }
+  list.innerHTML = data.tools.map(t => `
+    <div class="admin-tool-item">
+      ${t.photo
+        ? `<img class="thumb" src="${t.photo}" style="width:52px;height:52px;border-radius:8px;object-fit:cover">`
+        : `<div class="thumb">🔧</div>`}
+      <div class="tool-meta">
+        <div class="id">${t.id}</div>
+        <div class="name">${escHtml(t.name)}</div>
+        <span class="location-badge ${getLocationClass(t.location)}" style="font-size:11px">${escHtml(t.location)}</span>
+      </div>
+      <div class="actions">
+        <button class="btn-edit" onclick="openEdit('${t.id}')">編集</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Edit Tool ──────────────────────────────────────────
+function openEdit(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+  currentToolId = id;
+  editPhotoData = null;
+
+  document.getElementById('editToolId').value = tool.id;
+  document.getElementById('editToolName').value = tool.name;
+
+  refreshLocSelect('editToolLoc');
+  document.getElementById('editToolLoc').value = tool.location;
+
+  const img = document.getElementById('editPreviewImg');
+  if (tool.photo) { img.src = tool.photo; img.style.display = 'block'; }
+  else { img.src = ''; img.style.display = 'none'; }
+
+  document.getElementById('editPhotoInput').value = '';
+  openOverlay('overlayEdit');
+}
+
+function saveEditTool() {
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool) return;
+  const name = document.getElementById('editToolName').value.trim();
+  if (!name) { showToast('⚠ 工具名を入力してください'); return; }
+  tool.name = name;
+  tool.location = document.getElementById('editToolLoc').value;
+  if (editPhotoData) tool.photo = editPhotoData;
+  saveData(data);
+  renderTools();
+  renderAdminToolList();
+  closeOverlay('overlayEdit');
+  showToast(`✅ ${name} を更新しました`);
+}
+
+function deleteTool() {
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool) return;
+  if (!confirm(`「${tool.name}」を削除しますか？`)) return;
+  data.tools = data.tools.filter(t => t.id !== currentToolId);
+  saveData(data);
+  renderTools();
+  renderAdminToolList();
+  closeOverlay('overlayEdit');
+  showToast(`🗑 ${tool.name} を削除しました`);
+}
+
+// ── Location Management ────────────────────────────────
+function renderLocList() {
+  const list = document.getElementById('locList');
+  list.innerHTML = data.locations.map((loc, i) => `
+    <div class="loc-item" id="locItem${i}">
+      <input type="text" value="${escHtml(loc)}" id="locInput${i}" placeholder="現場名">
+      <button class="btn-danger" onclick="removeLocation(${i})">削除</button>
+    </div>
+  `).join('');
+}
+
+function addLocation() {
+  data.locations.push('新しい現場');
+  renderLocList();
+  const lastIdx = data.locations.length - 1;
+  const input = document.getElementById(`locInput${lastIdx}`);
+  if (input) { input.focus(); input.select(); }
+}
+
+function removeLocation(i) {
+  if (data.locations.length <= 1) { showToast('⚠ 現場は最低1つ必要です'); return; }
+  data.locations.splice(i, 1);
+  renderLocList();
+}
+
+function saveLocations() {
+  const inputs = document.querySelectorAll('#locList input');
+  const newLocs = [];
+  let valid = true;
+  inputs.forEach(inp => {
+    const v = inp.value.trim();
+    if (!v) { valid = false; return; }
+    newLocs.push(v);
+  });
+  if (!valid) { showToast('⚠ 空の現場名は保存できません'); return; }
+  data.locations = newLocs;
+  saveData(data);
+  refreshLocSelect('newToolLoc');
+  showToast('✅ 現場名を保存しました');
+}
+
+// ── Unreturned List ────────────────────────────────────
+function renderUnreturnedList() {
+  const list = document.getElementById('unreturnedList');
+  const unreturned = data.tools.filter(t => isCheckedOut(t));
+  if (!unreturned.length) {
+    list.innerHTML = `<div class="unreturned-empty">✅ 未返却の工具はありません</div>`;
+    return;
+  }
+  list.innerHTML = `<div class="unreturned-list">` + unreturned.map(t => {
+    const last = getLastHistory(t);
+    const overdue = isOverdue(t);
+    const person = last ? last.person : '不明';
+    const since = last ? formatDate(last.date) : '';
+    const dueTxt = t.dueDate ? formatDateShort(t.dueDate) : '未設定';
+    return `
+      <div class="unreturned-item ${overdue ? 'overdue' : ''}">
+        <div class="ui-header">
+          ${t.photo
+            ? `<img class="ui-thumb" src="${t.photo}" style="width:44px;height:44px;border-radius:8px;object-fit:cover">`
+            : `<div class="ui-thumb">🔧</div>`}
+          <div class="ui-meta">
+            <div class="ui-id">${t.id}</div>
+            <div class="ui-name">${escHtml(t.name)}</div>
+          </div>
+          ${overdue ? `<span class="badge-overdue">⚠ 期限超過</span>` : `<span class="badge-checkout">貸出中</span>`}
+        </div>
+        <div class="ui-detail">
+          📍 <strong>${escHtml(t.location)}</strong>　👤 <strong>${escHtml(person)}</strong><br>
+          貸出：${since}<br>
+          返却予定：${overdue
+            ? `<span class="overdue-label">${dueTxt}（超過）</span>`
+            : `<strong>${dueTxt}</strong>`}
+        </div>
+        <button class="btn-notify" onclick="sendNotification('${t.id}')">
+          📨 通知文をコピー／送る
+        </button>
+      </div>`;
+  }).join('') + `</div>`;
+}
+
+function sendNotification(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+  const last = getLastHistory(tool);
+  const person = last ? last.person : '担当者';
+  const dueTxt = tool.dueDate ? `\n返却予定日：${formatDateShort(tool.dueDate)}` : '';
+  const overdue = isOverdue(tool);
+  const msg = `【工具${overdue ? '返却期限超過' : '返却'}のお願い】\n${person}さん、${tool.location}にある「${tool.name}（${tool.id}）」の倉庫への返却をお願いします。${dueTxt}`;
+
+  if (navigator.share) {
+    navigator.share({ text: msg }).catch(() => copyToClipboard(msg));
+  } else {
+    copyToClipboard(msg);
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 通知文をコピーしました');
+  }).catch(() => {
+    // フォールバック
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('📋 通知文をコピーしました');
+  });
+}
+
+// ── Person Management ──────────────────────────────────
+function renderPersonList() {
+  const list = document.getElementById('personList');
+  list.innerHTML = data.persons.map((p, i) => `
+    <div class="loc-item" id="personItem${i}">
+      <input type="text" value="${escHtml(p)}" id="personInput${i}" placeholder="担当者名">
+      <button class="btn-danger" onclick="removePerson(${i})">削除</button>
+    </div>
+  `).join('');
+}
+
+function addPerson() {
+  data.persons.push('新しい担当者');
+  renderPersonList();
+  const lastIdx = data.persons.length - 1;
+  const input = document.getElementById(`personInput${lastIdx}`);
+  if (input) { input.focus(); input.select(); }
+}
+
+function removePerson(i) {
+  data.persons.splice(i, 1);
+  renderPersonList();
+}
+
+function savePersons() {
+  const inputs = document.querySelectorAll('#personList input');
+  const newPersons = [];
+  let valid = true;
+  inputs.forEach(inp => {
+    const v = inp.value.trim();
+    if (!v) { valid = false; return; }
+    newPersons.push(v);
+  });
+  if (!valid) { showToast('⚠ 空の担当者名は保存できません'); return; }
+  data.persons = newPersons;
+  saveData(data);
+  showToast('✅ 担当者を保存しました');
+}
+
+// ── Overlay helpers ────────────────────────────────────
+function openOverlay(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove('show');
+}
+function closeUpdate(e) {
+  if (e.target.classList.contains('overlay')) {
+    e.currentTarget.classList.remove('show');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── URL param: direct tool open ────────────────────────
+function checkUrlParam() {
+  const params = new URLSearchParams(location.search);
+  const toolId = params.get('tool');
+  if (toolId) {
+    const tool = data.tools.find(t => t.id === toolId);
+    if (tool) openUpdate(toolId);
+    else showToast(`⚠ 工具 ${toolId} が見つかりません`);
+  }
+}
+
+// ── Init ───────────────────────────────────────────────
+renderTools();
+checkUrlParam();
+</script>
+</body>
+</html>
