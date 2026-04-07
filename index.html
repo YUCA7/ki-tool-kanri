@@ -669,6 +669,57 @@
   }
   .btn-notify:active { background: #d2e3fc; }
   .unreturned-empty { text-align: center; color: var(--muted); padding: 32px 0; font-size: 14px; }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 540px) {
+    .tool-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 10px 12px 100px;
+    }
+    .tool-card {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+    }
+    .tool-card .photo {
+      width: 110px;
+      min-width: 110px;
+      height: 110px;
+      aspect-ratio: auto;
+      flex-shrink: 0;
+      border-radius: 14px 0 0 14px;
+    }
+    .tool-card .photo-placeholder {
+      width: 110px;
+      min-width: 110px;
+      height: 110px;
+      aspect-ratio: auto;
+      flex-shrink: 0;
+      font-size: 40px;
+      border-radius: 14px 0 0 14px;
+    }
+    .tool-card .info {
+      flex: 1;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+    .tool-card .tool-name {
+      font-size: 17px;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .tool-card .tool-id {
+      font-size: 12px;
+    }
+    .badge-row {
+      margin-top: 6px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1260,6 +1311,7 @@ function openAdmin() {
 function switchTab(i) {
   document.querySelectorAll('.admin-tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
   document.querySelectorAll('.admin-pane').forEach((p, idx) => p.classList.toggle('active', idx === i));
+  if (i === 1) renderAdminToolList();
   if (i === 4) renderUnreturnedList();
 }
 
@@ -1306,9 +1358,10 @@ function addTool() {
   if (!name) { showToast('⚠ 工具名を入力してください'); return; }
   const id = document.getElementById('newToolId').value;
   const loc = document.getElementById('newToolLoc').value;
-  data.tools.push({ id, name, photo: newPhotoData || '', location: loc });
+  data.tools.push({ id, name, photo: newPhotoData || '', location: loc, history: [], dueDate: null });
   saveData(data);
   renderTools();
+  renderAdminToolList();
   showToast(`✅ ${name}（${id}）を追加しました`);
   // Reset
   document.getElementById('newToolName').value = '';
