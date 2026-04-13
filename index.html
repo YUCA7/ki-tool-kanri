@@ -670,6 +670,94 @@
   .btn-notify:active { background: #d2e3fc; }
   .unreturned-empty { text-align: center; color: var(--muted); padding: 32px 0; font-size: 14px; }
 
+  /* ── List view ── */
+  .tool-list-container {
+    padding: 14px 16px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tool-list-group {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .tool-list-group-header {
+    background: var(--primary);
+    color: #fff;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tool-list-group-header .group-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tool-list-group-header .group-count {
+    background: rgba(255,255,255,0.22);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .tool-list-group-header .group-arrow {
+    font-size: 10px;
+    opacity: .8;
+    transition: transform .2s;
+  }
+  .tool-list-group.collapsed .group-arrow { transform: rotate(-90deg); }
+  .tool-list-group.collapsed .tool-list-items { display: none; }
+
+  .tool-list-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+  .tool-list-item {
+    background: #fff;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background .1s;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .tool-list-item:active { background: #f0f4ff; }
+  .tool-list-item.overdue-item { background: #fff5f5; }
+  .tool-list-item-id {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .tool-list-item-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  /* ── View toggle button ── */
+  .btn-view-toggle {
+    background: rgba(255,255,255,0.18);
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .btn-view-toggle:active { background: rgba(255,255,255,0.32); }
+
   /* ── Mobile responsive ── */
   @media (max-width: 540px) {
     .tool-grid {
@@ -731,6 +819,7 @@
       <div class="sub" id="toolCount">読み込み中...</div>
     </div>
     <div class="header-actions">
+      <button class="btn-view-toggle" id="btnToggleView" onclick="toggleView()">☰ リスト</button>
       <button class="btn-icon" onclick="openAdmin()">⚙ 管理者</button>
     </div>
   </div>
@@ -924,20 +1013,197 @@
 
 <script>
 // ── Data ──────────────────────────────────────────────
+// ↓↓↓ 工具リストを更新してアップしたら、この数字を1つ上げてください ↓↓↓
+// 例: '1.0' → '1.1' → '1.2' のように変えるだけでOKです
+// そうするとお客様のブラウザが自動で最新データに切り替わります
+const DATA_VERSION = '1.0';
 const DEFAULT_LOCATIONS = ['A現場', 'B現場', 'C現場', '倉庫'];
 const DEFAULT_PERSONS = ['山田', '鈴木', '佐藤'];
 const DEFAULT_TOOLS = [
-  { id: 'KI-01', name: '電動ドリル', photo: '', location: '倉庫', history: [] },
-  { id: 'KI-02', name: 'インパクトドライバー', photo: '', location: 'A現場', history: [] },
-  { id: 'KI-03', name: '丸のこ', photo: '', location: 'B現場', history: [] },
+  { id: "BS1", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS2", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS3", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS4", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS5", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS6", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS7", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BS8", name: "バンドソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H1", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H2", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H3", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H4", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H5", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "H6", name: "ハリケーン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L1", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L2", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L3", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L4", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L5", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L6", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L7", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L8", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L9", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L10", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L11", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "L12", name: "レーザー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS1", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS2", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS3", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS4", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS5", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS6", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS7", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "RS8", name: "レシプロソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "EC1", name: "チャージングスケール", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "EC2", name: "チャージングスケール", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "EC3", name: "チャージングスケール", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "EC4", name: "チャージングスケール", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "EC5", name: "チャージングスケール", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TW 1", name: "トルクレンチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TW 2", name: "トルクレンチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TW 3", name: "トルクレンチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TW 4", name: "トルクレンチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TW 5", name: "トルクレンチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "CR 1", name: "窒素レギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "CR 2", name: "窒素レギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "CR 3", name: "窒素レギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "CR 4", name: "窒素レギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "CR 5", name: "窒素レギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "AR 1", name: "アセサンレギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "AR 2", name: "アセサンレギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "AR 3", name: "アセサンレギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "AR 4", name: "アセサンレギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "AR 5", name: "アセサンレギュレーター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 1", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 2", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 3", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 4", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 5", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 6", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 7", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 8", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 9", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GAB 10", name: "ガチャベンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 1", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 2", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 3", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 4", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 5", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 6", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 7", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 8", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 9", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 10", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "MF 11", name: "マニホールド", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TS 1", name: "耐圧セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TS 2", name: "耐圧セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TS 3", name: "耐圧セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TS 4", name: "耐圧セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TS 5", name: "耐圧セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 1", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 2", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 3", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 4", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 5", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 6", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "FM 7", name: "フレアマン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 1", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 2", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 3", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 4", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 5", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 6", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 7", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 8", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 9", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ZC 10", name: "全ネジカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 1", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 2", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 3", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 4", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 5", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 6", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "ID 7", name: "インパクトドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 1", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 2", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 3", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 4", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 5", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 6", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 7", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 8", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 9", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SP 10", name: "真空ポンプ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 1", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 2", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 3", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 4", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 5", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 6", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 7", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 8", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 9", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HD 10", name: "ハンマードリル", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 1", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 2", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 3", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 4", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 5", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 6", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "XP 7", name: "エキスパンダー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "PC 1", name: "パンチャー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "PC 2", name: "パンチャー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "PC 3", name: "パンチャー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "PC 4", name: "パンチャー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "PC 5", name: "パンチャー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 1", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 2", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 3", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 4", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 5", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 6", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "D 7", name: "ドラム", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GK 1", name: "ガス回収セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GK 2", name: "ガス回収セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GK 3", name: "ガス回収セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "GK 4", name: "ガス回収セット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SS 1", name: "墨だしセット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SS 2", name: "墨だしセット", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TC-1", name: "トーチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TC-2", name: "トーチ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "DT-1", name: "デジタル温度計", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "照明 1", name: "照明", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "照明 2", name: "照明", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "TK-1", name: "タッカー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "SB-1", name: "スプリングベンダ", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "JS-1", name: "ジクソー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "DB-1", name: "ドリル刃", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "HG-1", name: "ヒートガン", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "DD 1", name: "ドリルドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "DD 2", name: "ドリルドライバー", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BC 1", name: "ボードカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BC 2", name: "ボードカッター", photo: '', location: '倉庫', history: [], dueDate: null },
+  { id: "BC 3", name: "ボードカッター", photo: '', location: '倉庫', history: [], dueDate: null },
 ];
 
 function loadData() {
+  // バージョンが変わっていたら自動リセット
+  const storedVersion = localStorage.getItem('data_version');
+  if (storedVersion !== DATA_VERSION) {
+    localStorage.setItem('data_version', DATA_VERSION);
+    localStorage.removeItem('tools_data');
+    localStorage.removeItem('locations_data');
+    localStorage.removeItem('persons_data');
+    return {
+      tools: JSON.parse(JSON.stringify(DEFAULT_TOOLS)),
+      locations: [...DEFAULT_LOCATIONS],
+      persons: [...DEFAULT_PERSONS]
+    };
+  }
   const t = localStorage.getItem('tools_data');
   const l = localStorage.getItem('locations_data');
   const p = localStorage.getItem('persons_data');
   const tools = t ? JSON.parse(t) : JSON.parse(JSON.stringify(DEFAULT_TOOLS));
-  // 既存データにhistoryがない場合は補完
   tools.forEach(tool => {
     if (!tool.history) tool.history = [];
     if (tool.dueDate === undefined) tool.dueDate = null;
@@ -960,6 +1226,26 @@ let currentPerson = null;
 let pendingLoc = null;
 let editPhotoData = null;
 let newPhotoData = null;
+let viewMode = localStorage.getItem('viewMode') || 'grid';
+let collapsedGroups = new Set(JSON.parse(localStorage.getItem('collapsedGroups') || '[]'));
+
+// ── View toggle ───────────────────────────────────────
+function toggleView() {
+  viewMode = viewMode === 'grid' ? 'list' : 'grid';
+  localStorage.setItem('viewMode', viewMode);
+  updateViewToggleBtn();
+  renderTools();
+}
+function updateViewToggleBtn() {
+  const btn = document.getElementById('btnToggleView');
+  if (btn) btn.textContent = viewMode === 'grid' ? '☰ リスト' : '⊞ グリッド';
+}
+function toggleGroup(name) {
+  if (collapsedGroups.has(name)) collapsedGroups.delete(name);
+  else collapsedGroups.add(name);
+  localStorage.setItem('collapsedGroups', JSON.stringify([...collapsedGroups]));
+  renderTools();
+}
 
 // ── Tool rendering ────────────────────────────────────
 function getLocationClass(loc) {
@@ -976,31 +1262,77 @@ function renderTools() {
     t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q)
   );
   document.getElementById('toolCount').textContent = `全 ${data.tools.length} 点`;
+
   if (!filtered.length) {
+    grid.className = 'tool-grid';
     grid.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>該当する工具はありません</p></div>`;
     return;
   }
-  grid.innerHTML = filtered.map(t => {
-    const checkedOut = isCheckedOut(t);
-    const overdue = isOverdue(t);
-    const last = getLastHistory(t);
-    const person = (checkedOut && last) ? last.person : null;
-    return `
-    <div class="tool-card ${overdue ? 'overdue' : ''}" onclick="openUpdate('${t.id}')">
-      ${t.photo
-        ? `<img class="photo" src="${t.photo}" alt="${t.name}">`
-        : `<div class="photo-placeholder">🔧</div>`}
-      <div class="info">
-        <div class="tool-id">${t.id}</div>
-        <div class="tool-name">${escHtml(t.name)}</div>
-        <span class="location-badge ${getLocationClass(t.location)}">${escHtml(t.location)}</span>
-        <div class="badge-row">
-          ${checkedOut ? `<span class="badge-checkout">貸出中${person ? `：${escHtml(person)}` : ''}</span>` : ''}
-          ${overdue ? `<span class="badge-overdue">⚠ 期限超過</span>` : ''}
+
+  if (viewMode === 'list') {
+    grid.className = 'tool-list-container';
+    // カテゴリ名でグループ化（元の順序を維持）
+    const groupOrder = [];
+    const groups = {};
+    filtered.forEach(t => {
+      if (!groups[t.name]) { groups[t.name] = []; groupOrder.push(t.name); }
+      groups[t.name].push(t);
+    });
+    grid.innerHTML = groupOrder.map(name => {
+      const tools = groups[name];
+      const collapsed = collapsedGroups.has(name);
+      return `
+      <div class="tool-list-group ${collapsed ? 'collapsed' : ''}">
+        <div class="tool-list-group-header" onclick="toggleGroup('${escHtml(name)}')">
+          <div class="group-left">
+            <span>🔧 ${escHtml(name)}</span>
+            <span class="group-arrow">▼</span>
+          </div>
+          <span class="group-count">${tools.length}点</span>
         </div>
-      </div>
-    </div>`;
-  }).join('');
+        <div class="tool-list-items">
+          ${tools.map(t => {
+            const checkedOut = isCheckedOut(t);
+            const overdue = isOverdue(t);
+            const last = getLastHistory(t);
+            const person = (checkedOut && last) ? last.person : null;
+            return `
+            <div class="tool-list-item ${overdue ? 'overdue-item' : ''}" onclick="openUpdate('${escHtml(t.id)}')">
+              <span class="tool-list-item-id">${escHtml(t.id)}</span>
+              <div class="tool-list-item-badges">
+                <span class="location-badge ${getLocationClass(t.location)}">${escHtml(t.location)}</span>
+                ${checkedOut ? `<span class="badge-checkout">貸出中${person ? `：${escHtml(person)}` : ''}</span>` : ''}
+                ${overdue ? `<span class="badge-overdue">⚠ 期限超過</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    grid.className = 'tool-grid';
+    grid.innerHTML = filtered.map(t => {
+      const checkedOut = isCheckedOut(t);
+      const overdue = isOverdue(t);
+      const last = getLastHistory(t);
+      const person = (checkedOut && last) ? last.person : null;
+      return `
+      <div class="tool-card ${overdue ? 'overdue' : ''}" onclick="openUpdate('${t.id}')">
+        ${t.photo
+          ? `<img class="photo" src="${t.photo}" alt="${t.name}">`
+          : `<div class="photo-placeholder">🔧</div>`}
+        <div class="info">
+          <div class="tool-id">${t.id}</div>
+          <div class="tool-name">${escHtml(t.name)}</div>
+          <span class="location-badge ${getLocationClass(t.location)}">${escHtml(t.location)}</span>
+          <div class="badge-row">
+            ${checkedOut ? `<span class="badge-checkout">貸出中${person ? `：${escHtml(person)}` : ''}</span>` : ''}
+            ${overdue ? `<span class="badge-overdue">⚠ 期限超過</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 function escHtml(s) {
@@ -1628,6 +1960,7 @@ function checkUrlParam() {
 }
 
 // ── Init ───────────────────────────────────────────────
+updateViewToggleBtn();
 renderTools();
 checkUrlParam();
 </script>
