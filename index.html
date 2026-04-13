@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>工具管理</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root {
@@ -1013,10 +1015,17 @@
 
 <script>
 // ── Data ──────────────────────────────────────────────
-// ↓↓↓ 工具リストを更新してアップしたら、この数字を1つ上げてください ↓↓↓
-// 例: '1.0' → '1.1' → '1.2' のように変えるだけでOKです
-// そうするとお客様のブラウザが自動で最新データに切り替わります
-const DATA_VERSION = '1.0';
+// ── Firebase 設定 ─────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBQP5STUDcD2crmhB-UV6NWHDIxd9QTP9Q",
+  authDomain: "ki-tool-kanri.firebaseapp.com",
+  projectId: "ki-tool-kanri",
+  storageBucket: "ki-tool-kanri.firebasestorage.app",
+  messagingSenderId: "527763213419",
+  appId: "1:527763213419:web:79b3a558a014ba0170f52e"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 const DEFAULT_LOCATIONS = ['A現場', 'B現場', 'C現場', '倉庫'];
 const DEFAULT_PERSONS = ['山田', '鈴木', '佐藤'];
 const DEFAULT_TOOLS = [
@@ -1186,41 +1195,58 @@ const DEFAULT_TOOLS = [
   { id: "BC 3", name: "ボードカッター", photo: '', location: '倉庫', history: [], dueDate: null },
 ];
 
-function loadData() {
-  // バージョンが変わっていたら自動リセット
-  const storedVersion = localStorage.getItem('data_version');
-  if (storedVersion !== DATA_VERSION) {
-    localStorage.setItem('data_version', DATA_VERSION);
-    localStorage.removeItem('tools_data');
-    localStorage.removeItem('locations_data');
-    localStorage.removeItem('persons_data');
-    return {
-      tools: JSON.parse(JSON.stringify(DEFAULT_TOOLS)),
-      locations: [...DEFAULT_LOCATIONS],
-      persons: [...DEFAULT_PERSONS]
-    };
-  }
-  const t = localStorage.getItem('tools_data');
-  const l = localStorage.getItem('locations_data');
-  const p = localStorage.getItem('persons_data');
-  const tools = t ? JSON.parse(t) : JSON.parse(JSON.stringify(DEFAULT_TOOLS));
-  tools.forEach(tool => {
-    if (!tool.history) tool.history = [];
-    if (tool.dueDate === undefined) tool.dueDate = null;
-  });
-  return {
-    tools,
-    locations: l ? JSON.parse(l) : [...DEFAULT_LOCATIONS],
-    persons: p ? JSON.parse(p) : [...DEFAULT_PERSONS]
-  };
+// ── Firestore 操作 ────────────────────────────────────
+function toolDocId(id) { return id.replace(/\s+/g, '_'); }
+function saveTool(tool) {
+  return db.collection('tools').doc(toolDocId(tool.id)).set(tool);
 }
-function saveData(data) {
-  localStorage.setItem('tools_data', JSON.stringify(data.tools));
-  localStorage.setItem('locations_data', JSON.stringify(data.locations));
-  localStorage.setItem('persons_data', JSON.stringify(data.persons));
+function deleteToolDoc(id) {
+  return db.collection('tools').doc(toolDocId(id)).delete();
+}
+function saveSettings() {
+  return db.collection('settings').doc('config').set({
+    locations: data.locations,
+    persons: data.persons
+  });
 }
 
-let data = loadData();
+let data = { tools: [], locations: [...DEFAULT_LOCATIONS], persons: [...DEFAULT_PERSONS] };
+
+async function initApp() {
+  // 設定の読み込み
+  const settingsSnap = await db.collection('settings').doc('config').get();
+  if (!settingsSnap.exists) {
+    await saveSettings();
+  } else {
+    const s = settingsSnap.data();
+    data.locations = s.locations || [...DEFAULT_LOCATIONS];
+    data.persons = s.persons || [...DEFAULT_PERSONS];
+  }
+  // 工具データが空なら初期データを投入
+  const toolsSnap = await db.collection('tools').limit(1).get();
+  if (toolsSnap.empty) {
+    const batch = db.batch();
+    DEFAULT_TOOLS.forEach((tool, i) => {
+      batch.set(db.collection('tools').doc(toolDocId(tool.id)), { ...tool, order: i });
+    });
+    await batch.commit();
+  }
+  // リアルタイム同期（複数人で使っても即反映）
+  let firstLoad = true;
+  db.collection('tools').onSnapshot(snapshot => {
+    data.tools = snapshot.docs.map(doc => doc.data());
+    data.tools.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    renderTools();
+    if (firstLoad) { firstLoad = false; checkUrlParam(); }
+  }, err => { console.error(err); showToast('⚠ データ読み込みエラー'); });
+  db.collection('settings').doc('config').onSnapshot(snap => {
+    if (snap.exists) {
+      const s = snap.data();
+      data.locations = s.locations || [...DEFAULT_LOCATIONS];
+      data.persons = s.persons || [...DEFAULT_PERSONS];
+    }
+  });
+}
 let currentToolId = null;
 let currentPerson = null;
 let pendingLoc = null;
@@ -1467,7 +1493,7 @@ function confirmCheckout() {
     type: isReturn ? 'return' : 'checkout'
   });
 
-  saveData(data);
+  saveTool(tool).catch(() => showToast('⚠ 保存に失敗しました'));
   renderTools();
   document.querySelector('.current-loc-val').textContent = pendingLoc;
 
@@ -1690,8 +1716,9 @@ function addTool() {
   if (!name) { showToast('⚠ 工具名を入力してください'); return; }
   const id = document.getElementById('newToolId').value;
   const loc = document.getElementById('newToolLoc').value;
-  data.tools.push({ id, name, photo: newPhotoData || '', location: loc, history: [], dueDate: null });
-  saveData(data);
+  const newTool = { id, name, photo: newPhotoData || '', location: loc, history: [], dueDate: null, order: data.tools.length };
+  data.tools.push(newTool);
+  saveTool(newTool).catch(() => showToast('⚠ 保存に失敗しました'));
   renderTools();
   renderAdminToolList();
   showToast(`✅ ${name}（${id}）を追加しました`);
@@ -1755,7 +1782,7 @@ function saveEditTool() {
   tool.name = name;
   tool.location = document.getElementById('editToolLoc').value;
   if (editPhotoData) tool.photo = editPhotoData;
-  saveData(data);
+  saveTool(tool).catch(() => showToast('⚠ 保存に失敗しました'));
   renderTools();
   renderAdminToolList();
   closeOverlay('overlayEdit');
@@ -1767,7 +1794,7 @@ function deleteTool() {
   if (!tool) return;
   if (!confirm(`「${tool.name}」を削除しますか？`)) return;
   data.tools = data.tools.filter(t => t.id !== currentToolId);
-  saveData(data);
+  deleteToolDoc(currentToolId).catch(() => showToast('⚠ 削除に失敗しました'));
   renderTools();
   renderAdminToolList();
   closeOverlay('overlayEdit');
@@ -1810,7 +1837,7 @@ function saveLocations() {
   });
   if (!valid) { showToast('⚠ 空の現場名は保存できません'); return; }
   data.locations = newLocs;
-  saveData(data);
+  saveSettings().catch(() => showToast('⚠ 保存に失敗しました'));
   refreshLocSelect('newToolLoc');
   showToast('✅ 現場名を保存しました');
 }
@@ -1921,7 +1948,7 @@ function savePersons() {
   });
   if (!valid) { showToast('⚠ 空の担当者名は保存できません'); return; }
   data.persons = newPersons;
-  saveData(data);
+  saveSettings().catch(() => showToast('⚠ 保存に失敗しました'));
   showToast('✅ 担当者を保存しました');
 }
 
@@ -1961,8 +1988,7 @@ function checkUrlParam() {
 
 // ── Init ───────────────────────────────────────────────
 updateViewToggleBtn();
-renderTools();
-checkUrlParam();
+initApp();
 </script>
 </body>
 </html>
