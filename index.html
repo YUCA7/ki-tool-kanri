@@ -1875,26 +1875,43 @@ function renderUnreturnedList() {
             ? `<span class="overdue-label">${dueTxt}（超過）</span>`
             : `<strong>${dueTxt}</strong>`}
         </div>
-        <button class="btn-notify" onclick="sendNotification('${t.id}')">
-          📨 通知文をコピー／送る
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-notify" style="background:#06C755;color:#fff;" onclick="sendLine('${escHtml(t.id)}')">
+            LINE で送る
+          </button>
+          <button class="btn-notify" onclick="sendNotification('${escHtml(t.id)}')">
+            📋 コピー
+          </button>
+        </div>
       </div>`;
   }).join('') + `</div>`;
+}
+
+function buildNotifyMsg(tool) {
+  const last = getLastHistory(tool);
+  const person = last ? last.person : '担当者';
+  const dueTxt = tool.dueDate ? `\n返却予定日：${formatDateShort(tool.dueDate)}` : '';
+  const overdue = isOverdue(tool);
+  return `【工具${overdue ? '返却期限超過' : '返却'}のお願い】\n${person}さん、${tool.location}にある「${tool.name}（${tool.id}）」の倉庫への返却をお願いします。${dueTxt}`;
+}
+
+function sendLine(id) {
+  const tool = data.tools.find(t => t.id === id);
+  if (!tool) return;
+  const msg = buildNotifyMsg(tool);
+  const url = 'https://line.me/R/msg/text/?' + encodeURIComponent(msg);
+  window.open(url, '_blank');
 }
 
 function sendNotification(id) {
   const tool = data.tools.find(t => t.id === id);
   if (!tool) return;
-  const last = getLastHistory(tool);
-  const person = last ? last.person : '担当者';
-  const dueTxt = tool.dueDate ? `\n返却予定日：${formatDateShort(tool.dueDate)}` : '';
-  const overdue = isOverdue(tool);
-  const msg = `【工具${overdue ? '返却期限超過' : '返却'}のお願い】\n${person}さん、${tool.location}にある「${tool.name}（${tool.id}）」の倉庫への返却をお願いします。${dueTxt}`;
-
+  const msg = buildNotifyMsg(tool);
   if (navigator.share) {
     navigator.share({ text: msg }).catch(() => copyToClipboard(msg));
   } else {
     copyToClipboard(msg);
+    showToast('📋 通知文をコピーしました');
   }
 }
 
