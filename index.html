@@ -843,13 +843,16 @@
     </div>
     <div class="tool-summary" id="updateSummary"></div>
     <div class="person-section">
-      <div class="section-label">👤 担当者を選択（必須）</div>
-      <div class="person-btn-wrap" id="personBtnWrap"></div>
-      <input class="person-free-input" id="personFreeInput" placeholder="直接入力することもできます" oninput="onPersonFreeInput()">
+      <div class="section-label">👤 担当者（必須）</div>
+      <input class="person-free-input" id="personFreeInput" placeholder="担当者名を入力" oninput="onPersonFreeInput()">
+    </div>
+    <div id="returnBtnArea" style="display:none; padding: 14px 18px 0;">
+      <button class="btn-confirm return" style="width:100%;font-size:16px;padding:14px;border-radius:12px;" onclick="quickReturn()">📦 返却する（倉庫へ戻す）</button>
     </div>
     <div class="loc-buttons" id="locButtonsArea">
-      <p>変更先の現場を選択</p>
-      <div class="loc-btn-grid" id="locBtnGrid"></div>
+      <p>変更先の現場を入力</p>
+      <input class="person-free-input" id="locTextInput" placeholder="現場名を入力" style="margin-bottom:10px;">
+      <button class="btn-primary" onclick="commitLocInput()" style="width:100%;padding:13px;border-radius:12px;font-size:15px;">変更先を決定</button>
     </div>
     <div class="confirm-area" id="confirmArea">
       <div class="confirm-dest" id="confirmDestLabel"></div>
@@ -942,7 +945,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">初期所在</label>
-        <select class="form-input" id="newToolLoc"></select>
+        <input class="form-input" id="newToolLoc" placeholder="例: A現場">
       </div>
       <button class="btn-primary" onclick="addTool()" id="btnAddTool">工具を追加</button>
     </div>
@@ -1003,7 +1006,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">現在の所在</label>
-        <select class="form-input" id="editToolLoc"></select>
+        <input class="form-input" id="editToolLoc" placeholder="例: A現場">
       </div>
       <button class="btn-primary" onclick="saveEditTool()">変更を保存</button>
       <button class="btn-danger" style="width:100%;padding:13px;border-radius:12px;font-size:15px;margin-top:10px;" onclick="deleteTool()">🗑 この工具を削除</button>
@@ -1385,45 +1388,25 @@ function openUpdate(id) {
     </div>
   `;
 
-  currentPerson = null;
   pendingLoc = null;
-  renderPersonButtons();
   document.getElementById('personFreeInput').value = '';
   document.getElementById('confirmArea').classList.remove('show');
   document.getElementById('locButtonsArea').style.display = '';
-  renderLocButtons(tool.location);
+  document.getElementById('locTextInput').value = '';
+  document.getElementById('returnBtnArea').style.display = isCheckedOut(tool) ? '' : 'none';
   openOverlay('overlayUpdate');
 }
 
-function renderPersonButtons() {
-  const wrap = document.getElementById('personBtnWrap');
-  wrap.innerHTML = data.persons.map(p => `
-    <button class="person-btn ${p === currentPerson ? 'active' : ''}" onclick="selectPerson('${escHtml(p)}')">
-      ${escHtml(p)}
-    </button>
-  `).join('');
-}
-
-function selectPerson(name) {
-  currentPerson = name;
-  document.getElementById('personFreeInput').value = '';
-  renderPersonButtons();
-}
+function renderPersonButtons() {}
 
 function onPersonFreeInput() {
-  const val = document.getElementById('personFreeInput').value.trim();
-  currentPerson = val || null;
-  // ボタン選択を外す
-  document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+  currentPerson = document.getElementById('personFreeInput').value.trim() || null;
 }
 
-function renderLocButtons(current) {
-  const grid = document.getElementById('locBtnGrid');
-  grid.innerHTML = data.locations.map(loc => `
-    <button class="loc-btn ${loc === current ? 'active' : ''}" onclick="updateLocation('${escHtml(loc)}')">
-      ${escHtml(loc)}
-    </button>
-  `).join('');
+function commitLocInput() {
+  const loc = document.getElementById('locTextInput').value.trim();
+  if (!loc) { showToast('⚠ 現場名を入力してください'); return; }
+  updateLocation(loc);
 }
 
 function updateLocation(loc) {
@@ -1431,10 +1414,9 @@ function updateLocation(loc) {
   if (!tool) return;
   if (loc === tool.location) return;
 
-  const freeVal = document.getElementById('personFreeInput').value.trim();
-  const person = freeVal || currentPerson;
+  const person = document.getElementById('personFreeInput').value.trim();
   if (!person) {
-    showToast('⚠ 担当者を選択または入力してください');
+    showToast('⚠ 担当者名を入力してください');
     return;
   }
 
@@ -1464,18 +1446,25 @@ function updateLocation(loc) {
   confirmArea.classList.add('show');
 }
 
+function quickReturn() {
+  const person = document.getElementById('personFreeInput').value.trim();
+  if (!person) { showToast('⚠ 担当者名を入力してください'); return; }
+  updateLocation('倉庫');
+}
+
 function cancelConfirm() {
+  const tool = data.tools.find(t => t.id === currentToolId);
   pendingLoc = null;
   document.getElementById('confirmArea').classList.remove('show');
   document.getElementById('locButtonsArea').style.display = '';
+  document.getElementById('returnBtnArea').style.display = (tool && isCheckedOut(tool)) ? '' : 'none';
 }
 
 function confirmCheckout() {
   const tool = data.tools.find(t => t.id === currentToolId);
   if (!tool || !pendingLoc) return;
 
-  const freeVal = document.getElementById('personFreeInput').value.trim();
-  const person = freeVal || currentPerson;
+  const person = document.getElementById('personFreeInput').value.trim();
   const fromLoc = tool.location;
   const isReturn = (pendingLoc === '倉庫');
   const dueDate = (!isReturn && document.getElementById('dueDateInput').value)
@@ -1499,6 +1488,7 @@ function confirmCheckout() {
 
   document.getElementById('confirmArea').classList.remove('show');
   document.getElementById('locButtonsArea').style.display = '';
+  document.getElementById('returnBtnArea').style.display = isReturn ? 'none' : '';
   renderLocButtons(pendingLoc);
   pendingLoc = null;
 
@@ -1653,7 +1643,6 @@ function buildToolUrl(id) {
 // ── Admin ──────────────────────────────────────────────
 function openAdmin() {
   refreshAdminToolId();
-  refreshLocSelect('newToolLoc');
   renderAdminToolList();
   renderLocList();
   renderPersonList();
@@ -1763,7 +1752,6 @@ function openEdit(id) {
   document.getElementById('editToolId').value = tool.id;
   document.getElementById('editToolName').value = tool.name;
 
-  refreshLocSelect('editToolLoc');
   document.getElementById('editToolLoc').value = tool.location;
 
   const img = document.getElementById('editPreviewImg');
@@ -1838,7 +1826,6 @@ function saveLocations() {
   if (!valid) { showToast('⚠ 空の現場名は保存できません'); return; }
   data.locations = newLocs;
   saveSettings().catch(() => showToast('⚠ 保存に失敗しました'));
-  refreshLocSelect('newToolLoc');
   showToast('✅ 現場名を保存しました');
 }
 
