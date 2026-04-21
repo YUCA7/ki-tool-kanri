@@ -455,50 +455,53 @@
     font-weight: 700;
   }
 
-  /* ── Person selection ── */
-  .person-section {
-    padding: 14px 18px 0;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 16px;
-  }
-  .person-section .section-label {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 10px;
-    font-weight: 600;
-  }
-  .person-btn-wrap {
+  /* ── Update form ── */
+  .update-form {
+    padding: 14px 18px 4px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
+    flex-direction: column;
+    gap: 14px;
   }
-  .person-btn {
-    padding: 9px 16px;
-    border-radius: 20px;
-    border: 2px solid var(--border);
-    background: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .12s;
-  }
-  .person-btn.active {
-    border-color: #43a047;
-    background: #e8f5e9;
-    color: #2e7d32;
-  }
-  .person-free-input {
+  .update-field { display: flex; flex-direction: column; gap: 6px; }
+  .update-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .update-input {
     width: 100%;
-    padding: 10px 14px;
+    padding: 12px 14px;
     border-radius: 10px;
     border: 1.5px solid var(--border);
-    font-size: 14px;
+    font-size: 15px;
     outline: none;
     background: #fff;
     color: var(--text);
   }
-  .person-free-input:focus { border-color: #43a047; }
+  .update-input:focus { border-color: var(--primary); }
+  .loc-input-row { display: flex; gap: 8px; align-items: stretch; }
+  .loc-input-row .update-input { flex: 1; }
+  .btn-move {
+    padding: 0 18px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-move:active { background: var(--primary-dark); }
+  .btn-return-big {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-return-big:active { opacity: .82; }
 
   /* ── History log ── */
   .history-list {
@@ -842,29 +845,42 @@
       <button class="btn-close" onclick="closeOverlay('overlayUpdate')">×</button>
     </div>
     <div class="tool-summary" id="updateSummary"></div>
-    <div class="person-section">
-      <div class="section-label">👤 担当者（必須）</div>
-      <input class="person-free-input" id="personFreeInput" placeholder="担当者名を入力" oninput="onPersonFreeInput()">
-    </div>
-    <div id="returnBtnArea" style="display:none; padding: 14px 18px 0;">
-      <button class="btn-confirm return" style="width:100%;font-size:16px;padding:14px;border-radius:12px;" onclick="quickReturn()">📦 返却する（倉庫へ戻す）</button>
-    </div>
-    <div class="loc-buttons" id="locButtonsArea">
-      <p>変更先の現場を入力</p>
-      <input class="person-free-input" id="locTextInput" placeholder="現場名を入力" style="margin-bottom:10px;">
-      <button class="btn-primary" onclick="commitLocInput()" style="width:100%;padding:13px;border-radius:12px;font-size:15px;">変更先を決定</button>
-    </div>
-    <div class="confirm-area" id="confirmArea">
-      <div class="confirm-dest" id="confirmDestLabel"></div>
-      <div class="due-date-group" id="dueDateGroup">
-        <label>📅 返却予定日（任意）</label>
-        <input type="date" id="dueDateInput">
+
+    <div class="update-form">
+      <!-- 担当者 -->
+      <div class="update-field">
+        <label class="update-label">👤 担当者（必須）</label>
+        <input class="update-input" id="personFreeInput" placeholder="担当者名を入力" oninput="onPersonFreeInput()">
       </div>
-      <div class="confirm-btns">
-        <button class="btn-back" onclick="cancelConfirm()">戻る</button>
-        <button class="btn-confirm" id="btnConfirm" onclick="confirmCheckout()">貸し出し確定</button>
+
+      <!-- 返却ボタン（貸出中のみ） -->
+      <div id="returnBtnArea" style="display:none;">
+        <button class="btn-return-big" onclick="quickReturn()">📦 倉庫へ返却する</button>
+      </div>
+
+      <!-- 移動先 -->
+      <div class="update-field" id="locFieldArea">
+        <label class="update-label">📍 移動先の現場</label>
+        <div class="loc-input-row">
+          <input class="update-input" id="locTextInput" placeholder="現場名を入力">
+          <button class="btn-move" onclick="commitLocInput()">移動</button>
+        </div>
+      </div>
+
+      <!-- 確認エリア（移動先決定後） -->
+      <div class="confirm-area" id="confirmArea">
+        <div class="confirm-dest" id="confirmDestLabel"></div>
+        <div class="due-date-group" id="dueDateGroup">
+          <label>📅 返却予定日（任意）</label>
+          <input type="date" id="dueDateInput">
+        </div>
+        <div class="confirm-btns">
+          <button class="btn-back" onclick="cancelConfirm()">戻る</button>
+          <button class="btn-confirm" id="btnConfirm" onclick="confirmCheckout()">貸し出し確定</button>
+        </div>
       </div>
     </div>
+
     <button class="btn-hist" onclick="openHistory(currentToolId)">
       📋 変更履歴を見る
     </button>
@@ -1391,13 +1407,11 @@ function openUpdate(id) {
   pendingLoc = null;
   document.getElementById('personFreeInput').value = '';
   document.getElementById('confirmArea').classList.remove('show');
-  document.getElementById('locButtonsArea').style.display = '';
   document.getElementById('locTextInput').value = '';
+  document.getElementById('locFieldArea').style.display = '';
   document.getElementById('returnBtnArea').style.display = isCheckedOut(tool) ? '' : 'none';
   openOverlay('overlayUpdate');
 }
-
-function renderPersonButtons() {}
 
 function onPersonFreeInput() {
   currentPerson = document.getElementById('personFreeInput').value.trim() || null;
@@ -1406,98 +1420,67 @@ function onPersonFreeInput() {
 function commitLocInput() {
   const loc = document.getElementById('locTextInput').value.trim();
   if (!loc) { showToast('⚠ 現場名を入力してください'); return; }
-  updateLocation(loc);
-}
-
-function updateLocation(loc) {
-  const tool = data.tools.find(t => t.id === currentToolId);
-  if (!tool) return;
-  if (loc === tool.location) return;
-
   const person = document.getElementById('personFreeInput').value.trim();
-  if (!person) {
-    showToast('⚠ 担当者名を入力してください');
-    return;
-  }
-
+  if (!person) { showToast('⚠ 担当者名を入力してください'); return; }
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (tool && loc === tool.location) { showToast('⚠ 現在の所在と同じです'); return; }
   pendingLoc = loc;
-  const isReturn = (loc === '倉庫');
-  const confirmArea = document.getElementById('confirmArea');
-  const dueDateGroup = document.getElementById('dueDateGroup');
-  const btnConfirm = document.getElementById('btnConfirm');
-  const label = document.getElementById('confirmDestLabel');
-
-  if (isReturn) {
-    label.innerHTML = `<span style="color:var(--primary)">倉庫</span> に返却しますか？`;
-    dueDateGroup.style.display = 'none';
-    btnConfirm.textContent = '返却完了';
-    btnConfirm.className = 'btn-confirm return';
-  } else {
-    label.innerHTML = `<span style="color:var(--success)">${escHtml(loc)}</span> に貸し出しますか？`;
-    dueDateGroup.style.display = '';
-    // デフォルト日付: 1週間後
-    const def = new Date(); def.setDate(def.getDate() + 7);
-    document.getElementById('dueDateInput').value = def.toISOString().slice(0,10);
-    btnConfirm.textContent = '貸し出し確定';
-    btnConfirm.className = 'btn-confirm';
-  }
-
-  document.getElementById('locButtonsArea').style.display = 'none';
-  confirmArea.classList.add('show');
+  // 貸し出し確認（返却予定日を設定）
+  const def = new Date(); def.setDate(def.getDate() + 7);
+  document.getElementById('dueDateInput').value = def.toISOString().slice(0, 10);
+  document.getElementById('confirmDestLabel').innerHTML =
+    `<span style="color:var(--success)">${escHtml(loc)}</span> に貸し出しますか？`;
+  document.getElementById('dueDateGroup').style.display = '';
+  document.getElementById('btnConfirm').textContent = '貸し出し確定';
+  document.getElementById('btnConfirm').className = 'btn-confirm';
+  document.getElementById('locFieldArea').style.display = 'none';
+  document.getElementById('returnBtnArea').style.display = 'none';
+  document.getElementById('confirmArea').classList.add('show');
 }
 
 function quickReturn() {
   const person = document.getElementById('personFreeInput').value.trim();
   if (!person) { showToast('⚠ 担当者名を入力してください'); return; }
-  updateLocation('倉庫');
+  const tool = data.tools.find(t => t.id === currentToolId);
+  if (!tool) return;
+  const fromLoc = tool.location;
+  tool.location = '倉庫';
+  tool.dueDate = null;
+  if (!tool.history) tool.history = [];
+  tool.history.unshift({ date: new Date().toISOString(), person, from: fromLoc, to: '倉庫', dueDate: null, type: 'return' });
+  saveTool(tool).catch(() => showToast('⚠ 保存に失敗しました'));
+  closeOverlay('overlayUpdate');
+  showToast(`✅ ${person}：${tool.name} 返却完了`);
 }
 
 function cancelConfirm() {
   const tool = data.tools.find(t => t.id === currentToolId);
   pendingLoc = null;
   document.getElementById('confirmArea').classList.remove('show');
-  document.getElementById('locButtonsArea').style.display = '';
+  document.getElementById('locFieldArea').style.display = '';
   document.getElementById('returnBtnArea').style.display = (tool && isCheckedOut(tool)) ? '' : 'none';
 }
 
 function confirmCheckout() {
   const tool = data.tools.find(t => t.id === currentToolId);
   if (!tool || !pendingLoc) return;
-
   const person = document.getElementById('personFreeInput').value.trim();
   const fromLoc = tool.location;
-  const isReturn = (pendingLoc === '倉庫');
-  const dueDate = (!isReturn && document.getElementById('dueDateInput').value)
-    ? document.getElementById('dueDateInput').value : null;
-
+  const dueDate = document.getElementById('dueDateInput').value || null;
   tool.location = pendingLoc;
-  tool.dueDate = isReturn ? null : dueDate;
+  tool.dueDate = dueDate;
   if (!tool.history) tool.history = [];
-  tool.history.unshift({
-    date: new Date().toISOString(),
-    person,
-    from: fromLoc,
-    to: pendingLoc,
-    dueDate,
-    type: isReturn ? 'return' : 'checkout'
-  });
-
+  tool.history.unshift({ date: new Date().toISOString(), person, from: fromLoc, to: pendingLoc, dueDate, type: 'checkout' });
   saveTool(tool).catch(() => showToast('⚠ 保存に失敗しました'));
   renderTools();
   document.querySelector('.current-loc-val').textContent = pendingLoc;
-
   document.getElementById('confirmArea').classList.remove('show');
-  document.getElementById('locButtonsArea').style.display = '';
-  document.getElementById('returnBtnArea').style.display = isReturn ? 'none' : '';
-  renderLocButtons(pendingLoc);
+  document.getElementById('locFieldArea').style.display = '';
+  document.getElementById('returnBtnArea').style.display = '';
+  document.getElementById('locTextInput').value = '';
   pendingLoc = null;
-
-  if (isReturn) {
-    showToast(`✅ ${person}：${tool.name} 返却完了`);
-  } else {
-    const dueTxt = dueDate ? `（返却予定 ${dueDate}）` : '';
-    showToast(`📦 ${person}：${tool.name} → ${tool.location}${dueTxt}`);
-  }
+  const dueTxt = dueDate ? `（返却予定 ${dueDate}）` : '';
+  showToast(`📦 ${person}：${tool.name} → ${tool.location}${dueTxt}`);
 }
 
 // ── Checkout helpers ──────────────────────────────────
